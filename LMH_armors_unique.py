@@ -111,11 +111,13 @@ def visualize_simdata(simdata):
     import matplotlib.pyplot as plt
     
     pool_sizes = [data["pool_size"] for data in simdata]
+    base_avgs = [data["base_avg"] for data in simdata]
     l_avgs = [data["L_avg"] for data in simdata]
     m_avgs = [data["M_avg"] for data in simdata]
     h_avgs = [data["H_avg"] for data in simdata]
     
     plt.figure(figsize=(10, 6))
+    plt.plot(pool_sizes, base_avgs, marker='x', label='Base Avg')
     plt.plot(pool_sizes, l_avgs, marker='o', label='Light (L)')
     plt.plot(pool_sizes, m_avgs, marker='s', label='Medium (M)')
     plt.plot(pool_sizes, h_avgs, marker='^', label='Heavy (H)')
