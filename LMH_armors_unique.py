@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np #type: ignore
 
 np.random.seed(42)
 sims = 10000
@@ -72,5 +72,67 @@ def run_upgraded_simulation(dice_counts):
         print(f"   % red.  M compared to H: {h_to_m:.1f}%")
         print(f"  H: Avg {np.mean(h_res):.2f} (Red: {base_mean - np.mean(h_res):.2f}, {perc_red_h:.1f}%)")
         print()
+        return {
+            "pool_size": dc,
+            "base_avg": base_mean,
+            "L_avg": np.mean(l_res),
+            "M_avg": np.mean(m_res),
+            "H_avg": np.mean(h_res),
+            "L_red": perc_red_l,
+            "M_red": perc_red_m,
+            "H_red": perc_red_h,
+            "L_to_M_red": m_to_l,
+            "M_to_H_red": h_to_m
+        }
 
-simdata = run_upgraded_simulation([2,3,4,5,6,7,8,9,10])
+def write_simdata_to_file(simdata, filename="simdata.txt"):
+    """Capture simulation output and write to file"""
+    import sys
+    from io import StringIO
+    
+    old_stdout = sys.stdout
+    sys.stdout = buffer = StringIO()
+    
+    for dice_count in [2, 3, 4, 5, 6, 7, 8, 9, 10]:
+        run_upgraded_simulation([dice_count])
+    
+    output = buffer.getvalue()
+    sys.stdout = old_stdout
+    
+    with open(filename, 'w') as f:
+        f.write(output)
+    
+    print(output)
+    print(f"Simulation data written to {filename}")
+
+
+# visualize the data using matplotlib
+def visualize_simdata(simdata):
+    import matplotlib.pyplot as plt
+    
+    pool_sizes = [data["pool_size"] for data in simdata]
+    l_avgs = [data["L_avg"] for data in simdata]
+    m_avgs = [data["M_avg"] for data in simdata]
+    h_avgs = [data["H_avg"] for data in simdata]
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(pool_sizes, l_avgs, marker='o', label='Light (L)')
+    plt.plot(pool_sizes, m_avgs, marker='s', label='Medium (M)')
+    plt.plot(pool_sizes, h_avgs, marker='^', label='Heavy (H)')
+    plt.xlabel('Pool Size')
+    plt.ylabel('Average Value')
+    plt.title('Simulation Results by Pool Size')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+simdata = []
+
+dice_amounts = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+for dice_count in dice_amounts:
+    result = run_upgraded_simulation([dice_count])
+    simdata.append(result)
+
+write_simdata_to_file(simdata, filename="simdata.txt")
+
+visualize_simdata(simdata)
