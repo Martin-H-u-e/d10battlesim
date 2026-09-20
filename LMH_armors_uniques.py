@@ -6,17 +6,18 @@ LOG_DIR.mkdir(exist_ok=True)
 
 np.random.seed(42)
 sims = 10000
-rounddown = False
+rounddown = True
 
-l_threshold = 8
-l_reduction_count = 2
+l_threshold = 9
+l_ignore_count = 0
+l_reduction_count = 4
 
-m_threshold = 9
-m_ignore_count = 1
-m_reduction_count = 1
+m_threshold = 10
+m_ignore_count = 2
+m_reduction_count = 2
 
-h_ignore_count = 2
-h_threshold = 10
+h_ignore_count = 4
+h_threshold = 11
 
 true_dmg = 0 # can never be reduced, so it is added to the final damage after all reductions
 
@@ -37,15 +38,23 @@ def run_d10_defense_simulation(dice_counts, rounddownYN=True):
             
             # --- Light (L): Halve 4, <9 ---
             keep_l = list(row)
-            h_count = 0
-            for i in range(len(keep_l)-1, 0, -1): # stop at 1 to protect 0
-                if h_count >= l_reduction_count: break
+            i_count = 0
+            # Apply ignores first (best value)
+            for i in range(len(keep_l)-1, 0, -1):
+                if i_count >= l_ignore_count: break
                 if keep_l[i] < l_threshold:
+                    keep_l[i] = None
+                    i_count += 1
+            # Apply halving next
+            h_count_l = 0
+            for i in range(len(keep_l)-1, 0, -1):
+                if h_count_l >= l_reduction_count: break
+                if keep_l[i] is not None and keep_l[i] < l_threshold:
                     keep_l[i] = int(keep_l[i] / 2.0)
                     if not rounddownYN:
                         keep_l[i] = keep_l[i] + 1
-                    h_count += 1
-            l_res.append(sum(keep_l) + true_dmg)
+                    h_count_l += 1
+            l_res.append(sum([x for x in keep_l if x is not None]) + true_dmg)
             
             # --- Medium (M): Ignore 2, Halve 1, <10 ---
             keep_m = list(row)
@@ -226,14 +235,15 @@ def visualize_simdata(simdata, vis_type="total_dmg_lines"):
         case "total_dmg_lines":
             #plt.figure(figsize=(15, 8.5))
             plt.figure(figsize=(18, 10))
-            plt.title(f'Total Damage recieved - {armor_type_names[0]} Upgrades')
+            plt.title(f'Total Damage recieved - {armor_type_names[2]} Upgrades')
             plt.xlabel(f'Number of d10 dice - {sims} Simulations')
             plt.ylabel('Average Damage recieved')
             plt.legend()
             plt.grid(True)
 
             # include base parameters in a legend box in the upper left corner of the graph
-            base_params = f"Simulation Parameters:\n  Number of sims: {sims}\n  L reduction count: {l_reduction_count}\n  M reduction count: {m_reduction_count}\n  M ignore count: {m_ignore_count}\n  H ignore count: {h_ignore_count}\n\n  L threshold: {l_threshold}\n  M threshold: {m_threshold}\n  H threshold: {h_threshold}\n\n  True-dmg: {true_dmg}\n\n Rounddown: {rounddown}"
+            base_params = f"Simulation Parameters:\n  Number of sims: {sims}\n  L reduction count: {l_reduction_count}\n  L irgnore count: {l_ignore_count}\n  M reduction count: {m_reduction_count}\n  M ignore count: {m_ignore_count}\n  H ignore count: {h_ignore_count}\n\n  L threshold: {l_threshold}\n  M threshold: {m_threshold}\n  H threshold: {h_threshold}\n\n  True-dmg: {true_dmg}\n\n Rounddown: {rounddown}"
+            # base_params = f"Simulation Parameters:\n  Number of sims: {sims}\n  L reduction count: {l_reduction_count}\n  L irgnore count: {l_ignore_count}\n  M reduction count: {m_reduction_count}\n  M ignore count: {m_ignore_count}\n  H ignore count: {h_ignore_count}\n\n  L threshold: {l_threshold}\n  M threshold: {m_threshold}\n  H threshold: {h_threshold}\n\n  True-dmg: {true_dmg}\n\n Rounddown: {rounddown}\n\n M - roundDOWN!"
             plt.text(0.02, 0.98, base_params, transform=plt.gca().transAxes, fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
             if true_dmg > 0:
