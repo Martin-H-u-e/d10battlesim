@@ -47,24 +47,36 @@ def run_RW_flat_armor_simulation(dice_counts):
 def visualize_simdata_figure1(simdata, vis_type="total_dmg_lines"):
     import matplotlib.pyplot as plt
 
+    show_blocked_damage = vis_type == "total_dmg_blocked"
     pool_sizes = [data["pool_size"] for data in simdata]
     base_avgs = [data["base_avg"] for data in simdata]
+    plotted_base_avgs = base_avgs
     plt.figure(figsize=(18, 10))
-    plt.title("Average Damage by Armor Value - RW Flat Armor Simulation")
+    chart_title = "Average Damage Blocked by Armor - RW Flat Armor Simulation" if show_blocked_damage else "Average Damage by Armor Value - RW Flat Armor Simulation"
+    y_axis_label = "Average Damage Blocked" if show_blocked_damage else "Average Damage"
+    plt.title(chart_title)
     plt.xlabel("Number of d10 dice")
-    plt.ylabel("Average Damage")
+    plt.ylabel(y_axis_label)
     plt.grid(True)
 
     line_handles = []
     reduction_labels = []
 
     base_line = plt.plot(
-        pool_sizes, base_avgs, linestyle=":", marker="x", label="Base Damage"
+        pool_sizes,
+        plotted_base_avgs,
+        linestyle=":",
+        marker="x",
+        label="Base Damage (unblocked)" if show_blocked_damage else "Base Damage",
     )[0]
     line_handles.append(base_line)
-    reduction_labels.append("Base Damage: 0.00% reduction")
+    reduction_labels.append(
+        "Base Damage (unblocked): 0.00% blocked"
+        if show_blocked_damage
+        else "Base Damage: 0.00% reduction"
+    )
 
-    if true_dmg > 0:
+    if true_dmg > 0 and not show_blocked_damage:
         true_damage_avgs = [data["avg_nrml_dmg"] for data in simdata]
         true_damage_line = plt.plot(
             pool_sizes,
@@ -98,7 +110,12 @@ def visualize_simdata_figure1(simdata, vis_type="total_dmg_lines"):
     armor_reductions = []
 
     for armor_value in range(1, total_reduction_size + 1):
-        averages = [data[f"armor_{armor_value}_avg"] for data in simdata]
+        averages = [
+            data["base_avg"] - data[f"armor_{armor_value}_avg"]
+            if show_blocked_damage
+            else data[f"armor_{armor_value}_avg"]
+            for data in simdata
+        ]
         group = "L" if armor_value <= 3 else "M" if armor_value <= 6 else "H"
         armor_line = plt.plot(
             pool_sizes,
@@ -107,16 +124,24 @@ def visualize_simdata_figure1(simdata, vis_type="total_dmg_lines"):
             color=group_colors[group],
             label=f"Armor {armor_value}",
         )[0]
+        blocked_averages = [
+            base_average - data[f"armor_{armor_value}_avg"]
+            for base_average, data in zip(base_avgs, simdata)
+        ]
         average_reduction = np.mean( # type:ignore
             [
-                (base_average - armor_average) / base_average * 100
-                for base_average, armor_average in zip(base_avgs, averages)
+                blocked_average / base_average * 100
+                for base_average, blocked_average in zip(
+                    base_avgs, blocked_averages
+                )
                 if base_average
             ]
         )
         line_handles.append(armor_line)
         reduction_labels.append(
-            f"Armor {armor_value}: {average_reduction:.2f}% reduction"
+            f"Armor {armor_value}: {average_reduction:.2f}% blocked"
+            if show_blocked_damage
+            else f"Armor {armor_value}: {average_reduction:.2f}% reduction"
         )
         armor_reductions.append(average_reduction)
 
@@ -183,6 +208,173 @@ def visualize_simdata_figure1(simdata, vis_type="total_dmg_lines"):
     plt.show()
 
 
+# visualize the data using matplotlib
+def visualize_simdata_figure1b(simdata, vis_type="total_dmg_lines"):
+    import matplotlib.pyplot as plt
+
+    show_blocked_damage = vis_type == "total_dmg_blocked"
+    pool_sizes = [data["pool_size"] for data in simdata]
+    base_avgs = [data["base_avg"] for data in simdata]
+    plotted_base_avgs = base_avgs
+    plt.figure(figsize=(18, 10))
+    chart_title = "Average Damage Blocked by Armor - RW Flat Armor Simulation" if show_blocked_damage else "Average Damage by Armor Value - RW Flat Armor Simulation"
+    y_axis_label = "Average Damage Blocked" if show_blocked_damage else "Average Damage"
+    plt.title(chart_title)
+    plt.xlabel("Number of d10 dice")
+    plt.ylabel(y_axis_label)
+    plt.grid(True)
+
+    line_handles = []
+    reduction_labels = []
+
+    base_line = plt.plot(
+        pool_sizes,
+        plotted_base_avgs,
+        linestyle=":",
+        marker="x",
+        label="Base Damage (unblocked)" if show_blocked_damage else "Base Damage",
+    )[0]
+    line_handles.append(base_line)
+    reduction_labels.append(
+        "Base Damage: 0.00% blocked"
+        if show_blocked_damage
+        else "Base Damage: 0.00% reduction"
+    )
+
+    if true_dmg > 0 and not show_blocked_damage:
+        true_damage_avgs = [data["avg_nrml_dmg"] for data in simdata]
+        true_damage_line = plt.plot(
+            pool_sizes,
+            true_damage_avgs,
+            linestyle=":",
+            marker="x",
+            label="Base Damage + True Damage",
+        )[0]
+        true_damage_increase = np.mean(
+            [
+                (true_average - base_average) / base_average * 100
+                for base_average, true_average in zip(base_avgs, true_damage_avgs)
+                if base_average
+            ]
+        )
+        line_handles.append(true_damage_line)
+        reduction_labels.append(
+            f"Base Damage + True Damage: +{true_damage_increase:.2f}% damage"
+        )
+
+    group_colors = {
+        "L": "green",
+        "M": "blue",
+        "H": "red",
+    }
+    group_ranges = {
+        "L": range(1, 4),
+        "M": range(4, 7),
+        "H": range(7, 10),
+    }
+    armor_reductions = []
+
+    for armor_value in range(1, total_reduction_size + 1):
+        averages = [
+            data["base_avg"] - data[f"armor_{armor_value}_avg"]
+            if show_blocked_damage
+            else data[f"armor_{armor_value}_avg"]
+            for data in simdata
+        ]
+        group = "L" if armor_value <= 3 else "M" if armor_value <= 6 else "H"
+        armor_line = plt.plot(
+            pool_sizes,
+            averages,
+            marker="o",
+            color=group_colors[group],
+            label=f"Armor {armor_value}",
+        )[0]
+        blocked_averages = [
+            base_average - data[f"armor_{armor_value}_avg"]
+            for base_average, data in zip(base_avgs, simdata)
+        ]
+        average_reduction = np.mean( # type:ignore
+            [
+                blocked_average / base_average * 100
+                for base_average, blocked_average in zip(
+                    base_avgs, blocked_averages
+                )
+                if base_average
+            ]
+        )
+        line_handles.append(armor_line)
+        reduction_labels.append(
+            f"Armor {armor_value}: {average_reduction:.2f}% blocked"
+            if show_blocked_damage
+            else f"Armor {armor_value}: {average_reduction:.2f}% reduction"
+        )
+        armor_reductions.append(average_reduction)
+
+    group_averages = {
+        group: [
+            np.mean([data[f"armor_{armor_value}_avg"] for armor_value in armor_values])
+            for data in simdata
+        ]
+        for group, armor_values in group_ranges.items()
+    }
+
+    def average_reduction(source, target):
+        reductions = [
+            (source_average - target_average) / source_average * 100
+            for source_average, target_average in zip(
+                group_averages[source], group_averages[target]
+            )
+            if source_average
+        ]
+        return float(np.mean(reductions)) if reductions else 0.0
+
+    # l_to_m = average_reduction("L", "M")
+    # m_to_h = average_reduction("M", "H")
+    # l_to_h = average_reduction("L", "H")
+    # reduction_summary = (
+    #     "Average group damage reduction:\n"
+    #     f"L to M: {l_to_m:.2f}%\n"
+    #     f"M to H: {m_to_h:.2f}%\n"
+    #     f"L to H: {l_to_h:.2f}%"
+    # )
+    # plt.text(
+    #     0.02,
+    #     0.98,
+    #     reduction_summary,
+    #     transform=plt.gca().transAxes,
+    #     verticalalignment="top",
+    #     bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
+    # )
+
+    chart = plt.gca()
+    chart.legend(loc="upper left")
+    chart.add_artist(chart.get_legend()) # type:ignore
+    chart.legend(
+        line_handles,
+        reduction_labels,
+        title="Average Damage Change",
+        loc="upper left",
+        bbox_to_anchor=(1.02, 1),
+    )
+    plt.subplots_adjust(right=0.75)
+
+    reduction_chart = plt.gcf().add_axes([0.78, 0.11, 0.15, 0.45]) # type:ignore
+    reduction_chart.plot(
+        range(1, total_reduction_size + 1),
+        armor_reductions,
+        marker="o",
+        color="black",
+    )
+    reduction_chart.set_title("Reduction by Armor", fontsize=9)
+    reduction_chart.set_xlabel("Armor", fontsize=8)
+    reduction_chart.set_ylabel("Reduction (%)", fontsize=8)
+    reduction_chart.tick_params(axis="both", labelsize=8)
+    reduction_chart.grid(True, alpha=0.5)
+    plt.show()
+
+
+
+
 def visualize_simdata_figure2(simdata):
     import matplotlib.pyplot as plt
 
@@ -241,5 +433,5 @@ for dice_count in dice_amounts:
 
 # write_simdata_to_CSV_googleSheet(simdata)
 
-visualize_simdata_figure1(simdata)
+visualize_simdata_figure1(simdata, vis_type="total_dmg_blocked")
 # visualize_simdata_figure2(simdata)
