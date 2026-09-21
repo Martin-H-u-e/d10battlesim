@@ -5,8 +5,8 @@ LOG_DIR = Path(__file__).resolve().parent / "simdata_logs"
 LOG_DIR.mkdir(exist_ok=True)
 
 np.random.seed(42)
-sims = 1000
-rounddown = False
+sims = 10000
+rounddown = True
 
 upgrade_tier_amounts = 3
 armor_tier_names = ["Normal","Special","Uniques"]
@@ -20,8 +20,9 @@ l_reduction_count = None
 
 # medium armor parameters per upgrade tier
 M_HARDNESS          = [ 7, 8, 9]
-M_IGNORE_DIE_COUNT  = [ 2, 2, 3]
-M_TOTAL_IGNORE_ONCE = [False,False,True]
+M_IGNORE_DIE_COUNT  = [ 2, 3, 3]
+M_TOTAL_IGNORE_ONCE = [False,False,False]
+M_UNREST_HALVING_ONCE = [False,False,False]
 m_reduction_count = None
 
 # heavy armor parameters per upgrade tier
@@ -46,7 +47,7 @@ def run_d10_defense_simulation(dice_counts, rounddownYN=True):
                 # Protected lowest die is row[0]
                 # Eligible dice are row[1:]
                 
-                # --- Light (L): Halve 4, <9 ---
+                # --- Light (L) ---------------------------------------------- Light (L) ---
                 keep_l = list(row)
                 i_count = 0
                 # Apply ignores first (best value)
@@ -65,28 +66,33 @@ def run_d10_defense_simulation(dice_counts, rounddownYN=True):
                             keep_l[i] = keep_l[i] + 1
                         h_count_l += 1
                 l_res.append(sum([x for x in keep_l if x is not None]) + TRUE_DMG)
-                
-                # --- Medium (M): Ignore 2, Halve 1, <10 ---
-                keep_m = list(row)
-                i_count = 0
-                # Apply ignores first (best value)
-                for i in range(len(keep_m)-1, 0, -1):
-                    if i_count >= M_IGNORE_DIE_COUNT[tier]: break
-                    if keep_m[i] < M_HARDNESS[tier]:
-                        keep_m[i] = None
-                        i_count += 1
-                # Apply halving next
-                h_count_m = 0
-                for i in range(len(keep_m)-1, 0, -1):
-                    if h_count_m >= (m_reduction_count or 0): break
-                    if keep_m[i] is not None and keep_m[i] < M_HARDNESS[tier]:
-                        keep_m[i] = int(keep_m[i] / 2.0)
-                        if not rounddownYN:
-                            keep_m[i] = keep_m[i] + 1
-                        h_count_m += 1
-                m_res.append(sum([x for x in keep_m if x is not None]) + TRUE_DMG)
+                # ^^^ Light (L) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Light (L) ^^^
 
-                # --- Heavy (H): Ignore 3, no threshold ---
+                # --- Medium (M) ---------------------------------------------- Medium(M) ---
+                keep_m = list(row)
+                i_count_m = 0
+                # Apply ignores (best value remaining)
+                for i in range(len(keep_m)-1, 0, -1):
+                    # First: Apply possible unrestriced halbings first
+                    if M_UNREST_HALVING_ONCE[tier] and i_count_m == 0:
+                        if keep_m[i] is not None:
+                            keep_m[i] = int(keep_m[i] / 2.0)
+                        else:
+                            break
+                        if not rounddownYN:
+                            keep_m[i] += 1
+                        i_count_m += 1
+                    if M_TOTAL_IGNORE_ONCE[tier] and i_count_m == 0:
+                        keep_m[i] = None
+                        i_count_m += 1
+                    if i_count_m >= M_IGNORE_DIE_COUNT[tier]: break
+                    if keep_m[i] is not None and keep_m[i] < M_HARDNESS[tier]:
+                        keep_m[i] = None
+                        i_count_m += 1
+                m_res.append(sum([x for x in keep_m if x is not None]) + TRUE_DMG)
+                # ^^^ Medium (M) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Medium(M) ^^^
+
+                # --- Heavy (H) ---------------------------------------------- Heavy (H) ---
                 keep_h = list(row)
                 i_count_h = 0
                 for i in range(len(keep_h)-1, 0, -1):
@@ -98,6 +104,7 @@ def run_d10_defense_simulation(dice_counts, rounddownYN=True):
                         keep_h[i] = None
                         i_count_h += 1
                 h_res.append(sum([x for x in keep_h if x is not None]) + TRUE_DMG)
+                # ^^^ Heavy (H) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Heavy (H) ^^^
                 
             base_mean = np.mean(base_sum)
             if TRUE_DMG > 0:
@@ -134,6 +141,7 @@ def run_d10_defense_simulation(dice_counts, rounddownYN=True):
                 })
 
     return simdata
+
 
 def write_simdata_to_txt_file(simdata):
     """Capture simulation output and write to text file"""
@@ -230,7 +238,6 @@ def write_simdata_to_CSV_googleSheet(simdata):
     print(f"Simdata got written successfully as CSV to {filename}.")
 
 
-
 # visualize the data using matplotlib
 def visualize_simdata(simdata, display_groups_separately=False):
     import matplotlib.pyplot as plt
@@ -316,6 +323,88 @@ def visualize_simdata(simdata, display_groups_separately=False):
     plt.show()
 
 
+def visualize_simdata_by_upgrade_tier(simdata):
+    import matplotlib.pyplot as plt
+
+    tier_colors = {
+        "L": ["#a5d6a7", "#66bb6a", "#2e7d32"],
+        "M": ["#90caf9", "#42a5f5", "#1565c0"],
+        "H": ["#ef9a9a", "#ef5350", "#c62828"],
+    }
+    armor_fields = {"L": "L_avg", "M": "M_avg", "H": "H_avg"}
+    armor_labels = {"L": "Light", "M": "Medium", "H": "Heavy"}
+    markers = {"L": "o", "M": "s", "H": "^"}
+    output_files = []
+
+    for tier in range(upgrade_tier_amounts):
+        tier_data = sorted(
+            (data for data in simdata if data["upgrade_tier"] == tier),
+            key=lambda data: data["pool_size"],
+        )
+        if not tier_data:
+            continue
+
+        tier_name = tier_data[0]["upgrade_tier_name"]
+        pool_sizes = [data["pool_size"] for data in tier_data]
+        base_avgs = [data["base_avg"] for data in tier_data]
+
+        figure, axis = plt.subplots(figsize=(18, 10))
+        axis.set_title(f"Total Damage received - {tier_name} Upgrade Tier")
+        axis.set_xlabel("Attack d10 pool sizes")
+        axis.set_ylabel("Average Damage received")
+        axis.set_ylim(0, 45)
+        axis.grid(True)
+        axis.plot(
+            pool_sizes,
+            base_avgs,
+            color="black",
+            marker=".",
+            linestyle=":",
+            label="Base Avg",
+        )
+
+        for armor_type, field in armor_fields.items():
+            axis.plot(
+                pool_sizes,
+                [data[field] for data in tier_data],
+                color=tier_colors[armor_type][tier],
+                marker=markers[armor_type],
+                label=f"{armor_labels[armor_type]} ({armor_type})",
+            )
+
+        if TRUE_DMG > 0:
+            axis.plot(
+                pool_sizes,
+                [data["avg_nrml_dmg"] for data in tier_data],
+                color="black",
+                marker=".",
+                linestyle="--",
+                label="Base Avg + True Damage",
+            )
+
+        base_params = f"Simulation Parameters:\n  Number of sims: {sims}\n  L reduction count: {l_reduction_count}\n  L ignore count: {L_IGNORE_DIE_COUNT}\n  M reduction count: {m_reduction_count}\n  M ignore count: {M_IGNORE_DIE_COUNT}\n  M ignore once: {M_TOTAL_IGNORE_ONCE}\n  H ignore count: {H_IGNORE_DIE_COUNT}\n  H ignore once: {H_TOTAL_IGNORE_ONCE}\n\n  L threshold: {L_HARDNESS}\n  M threshold: {M_HARDNESS}\n  H threshold: {H_HARDNESS}\n\n  True-dmg: {TRUE_DMG}\n\n  Rounddown: {rounddown}"
+        axis.text(
+            0.02,
+            0.98,
+            base_params,
+            transform=axis.transAxes,
+            fontsize=8,
+            verticalalignment="top",
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        )
+        axis.legend()
+        figure.tight_layout()
+
+        output_file = LOG_DIR / f"d10battlesim_{tier_name.lower()}_upgrade_tier.svg"
+        figure.savefig(output_file, format="svg", bbox_inches="tight")
+        output_files.append(output_file)
+        plt.close(figure)
+
+    print("Tier visualizations saved to:")
+    for output_file in output_files:
+        print(f"  {output_file}")
+
+
 def visualize_blocked_damage_bar_chart(simdata):
     import matplotlib.pyplot as plt
 
@@ -383,7 +472,13 @@ def visualize_blocked_damage_bar_chart(simdata):
     plt.grid(axis="y", alpha=0.3)
     plt.legend()
     plt.tight_layout()
-    plt.show()
+
+    output_file = LOG_DIR / f"d10battlesim_{tier_name.lower()}_9bar.svg"
+    plt.savefig(output_file, format="svg", bbox_inches="tight")
+    plt.close()
+
+    print(" 9 bar chart saved to:")
+    print(f"  {output_file}")
 
 
 def visualize_blocked_damage_grouped_bar_chart(
@@ -505,7 +600,7 @@ def visualize_blocked_damage_grouped_bar_chart(
     plt.ylabel("Damage blocked")
     plt.title("Damage Blocked by Armor Group and Upgrade Tier")
     plt.grid(axis="y", alpha=0.3)
-    base_params = f"Simulation Parameters:\n  Number of sims: {sims}\n  L reduction count: {l_reduction_count}\n  L ignore count: {L_IGNORE_DIE_COUNT}\n  M reduction count: {m_reduction_count}\n  M ignore count: {M_IGNORE_DIE_COUNT}\n  M ignore once: {M_TOTAL_IGNORE_ONCE}\n  H ignore count: {H_IGNORE_DIE_COUNT}\n  H ignore once: {H_TOTAL_IGNORE_ONCE}\n\n  L threshold: {L_HARDNESS}\n  M threshold: {M_HARDNESS}\n  H threshold: {H_HARDNESS}\n\n  True-dmg: {TRUE_DMG}\n\n  Rounddown: {rounddown}"
+    base_params = f"Simulation Parameters:\n  Number of sims: {sims}\n  L reduction count: {l_reduction_count}\n  L ignore count: {L_IGNORE_DIE_COUNT}\n  M reduction count: {m_reduction_count}\n  M ignore count: {M_IGNORE_DIE_COUNT}\n  M ignore once: {M_TOTAL_IGNORE_ONCE}\n  M halve once: {M_UNREST_HALVING_ONCE}\n  H ignore count: {H_IGNORE_DIE_COUNT}\n  H ignore once: {H_TOTAL_IGNORE_ONCE}\n\n  L threshold: {L_HARDNESS}\n  M threshold: {M_HARDNESS}\n  H threshold: {H_HARDNESS}\n\n  True-dmg: {TRUE_DMG}\n\n  Rounddown: {rounddown}"
     plt.text(
         0.02,
         0.98,
@@ -517,19 +612,25 @@ def visualize_blocked_damage_grouped_bar_chart(
     )
     plt.legend()
     plt.tight_layout()
-    plt.show()
+
+    output_file = LOG_DIR / f"d10battlesim_{tier_name.lower()}_9bar.svg"
+    plt.savefig(output_file, format="svg", bbox_inches="tight")
+    plt.close() 
+
+    print(" 9 bar chart saved to:")
+    print(f"  {output_file}")
 
 
 dice_amounts = [2, 3, 4, 5, 6, 7, 8]
 simdata = run_d10_defense_simulation(dice_amounts, rounddownYN=rounddown)
 
-write_simdata_to_txt_file(simdata)
-
-write_simdata_to_CSV_googleSheet(simdata)
+# write_simdata_to_txt_file(simdata)
+# write_simdata_to_CSV_googleSheet(simdata)
 
 # visualize_simdata(simdata, display_groups_separately=True)
+# visualize_simdata_by_upgrade_tier(simdata) # <---
 
 # visualize_blocked_damage_bar_chart(simdata)
 
 visualize_blocked_damage_grouped_bar_chart(simdata)
-visualize_blocked_damage_grouped_bar_chart(simdata,armor_types=["L","M","H"],selected_tiers={"L":1,"M":1,"H":1})
+# visualize_blocked_damage_grouped_bar_chart(simdata,armor_types=["L","M","H"],selected_tiers={"L":1,"M":1,"H":1})
