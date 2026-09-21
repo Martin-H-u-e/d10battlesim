@@ -4,9 +4,12 @@ from pathlib import Path
 LOG_DIR = Path(__file__).resolve().parent / "simdata_logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-np.random.seed(42)
-sims = 10000
+# np.random.seed(42)
+rnd_seed = np.random.randint(1, 100)
+np.random.seed(rnd_seed)
+sims = 100
 rounddown = True
+
 
 upgrade_tier_amounts = 3
 armor_tier_names = ["Normal","Special","Uniques"]
@@ -541,6 +544,8 @@ def visualize_blocked_damage_grouped_bar_chart(
 
     plt.figure(figsize=(18, 10))
     first_position = -(len(displayed_armor_tiers) - 1) * bar_width / 2
+    bar_positions = {}
+    bar_tops = {}
     for bar_index, (armor_type, tier) in enumerate(displayed_armor_tiers):
         field = armor_fields[armor_type]
         positions = group_positions + first_position + bar_index * bar_width
@@ -549,6 +554,8 @@ def visualize_blocked_damage_grouped_bar_chart(
             - records_by_key[(tier, pool_size)][field]
             for pool_size in pool_sizes
         ])
+        bar_positions[(armor_type, tier)] = positions
+        bar_tops[(armor_type, tier)] = blocked_damage
         blocked_percentages = blocked_damage / base_averages * 100
         tier_name = records_by_key[(tier, pool_sizes[0])]["upgrade_tier_name"]
 
@@ -579,6 +586,38 @@ def visualize_blocked_damage_grouped_bar_chart(
             color="black",
             linewidth=1.0,
         )
+
+    tier_line_colors = {
+        "Normal": "grey",
+        "Special": "pink",
+        "Uniques": "magenta",
+    }
+    for tier in range(upgrade_tier_amounts):
+        available_armor_types = [
+            armor_type
+            for armor_type in ("L", "M", "H")
+            if (armor_type, tier) in bar_positions
+        ]
+        for pool_index in range(len(pool_sizes)):
+            if len(available_armor_types) < 2:
+                continue
+            line_positions = [
+                bar_positions[(armor_type, tier)][pool_index]
+                for armor_type in available_armor_types
+            ]
+            line_tops = [
+                bar_tops[(armor_type, tier)][pool_index]
+                for armor_type in available_armor_types
+            ]
+            tier_name = records_by_key[(tier, pool_sizes[0])]["upgrade_tier_name"]
+            plt.plot(
+                line_positions,
+                line_tops,
+                color=tier_line_colors.get(tier_name, "grey"),
+                linewidth=0.8,
+                zorder=3,
+                label="_nolegend_",
+            )
 
     for group_position, base_average in zip(group_positions, base_averages):
         plt.text(
