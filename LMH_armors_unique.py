@@ -8,8 +8,8 @@ np.random.seed(42)
 sims = 10000
 rounddown = False
 
-l_threshold = 8
-l_reduction_count = 2
+l_threshold = 7
+l_reduction_count = 4
 
 m_threshold = 9
 m_ignore_count = 1
@@ -227,7 +227,7 @@ def visualize_simdata(simdata, vis_type="total_dmg_lines"):
             #plt.figure(figsize=(15, 8.5))
             plt.figure(figsize=(18, 10))
             plt.title(f'Total Damage recieved - {armor_type_names[0]} Upgrades')
-            plt.xlabel(f'Number of d10 dice - {sims} Simulations')
+            plt.xlabel('Attack d10 pool sizes')
             plt.ylabel('Average Damage recieved')
             plt.legend()
             plt.grid(True)

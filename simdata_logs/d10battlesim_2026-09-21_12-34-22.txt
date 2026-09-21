@@ -1,0 +1,160 @@
+Simulation Parameters:
+  Number of simulations: 1000
+  L reduction count: None
+  M reduction count: None
+  M ignore count: [2, 2, 3]
+  H ignore count: [2, 2, 3]
+
+  L threshold: [6, 6, 7]
+  M threshold: [7, 8, 9]
+  H threshold: [9, 10, 10]
+
+  Extra true damage (cannot be reduced): 0
+
+=== Normal | Pool: 2d10 (Base Avg: 10.92) ===
+  L: Avg 9.95 (Red: 0.96, 8.8%)
+   % red.  L compared to M: -6.0%
+  M: Avg 9.30 (Red: 1.62, 14.8%)
+   % red.  M compared to H: -19.1%
+  H: Avg 7.21 (Red: 3.70, 33.9%)
+
+=== Normal | Pool: 3d10 (Base Avg: 16.47) ===
+  L: Avg 14.50 (Red: 1.97, 12.0%)
+   % red.  L compared to M: -11.9%
+  M: Avg 12.54 (Red: 3.93, 23.8%)
+   % red.  M compared to H: -24.8%
+  H: Avg 8.46 (Red: 8.01, 48.6%)
+
+=== Normal | Pool: 4d10 (Base Avg: 22.17) ===
+  L: Avg 19.48 (Red: 2.69, 12.1%)
+   % red.  L compared to M: -12.8%
+  M: Avg 16.65 (Red: 5.52, 24.9%)
+   % red.  M compared to H: -20.9%
+  H: Avg 12.01 (Red: 10.16, 45.8%)
+
+=== Normal | Pool: 5d10 (Base Avg: 27.67) ===
+  L: Avg 24.28 (Red: 3.39, 12.3%)
+   % red.  L compared to M: -13.9%
+  M: Avg 20.42 (Red: 7.25, 26.2%)
+   % red.  M compared to H: -16.1%
+  H: Avg 15.97 (Red: 11.71, 42.3%)
+
+=== Normal | Pool: 6d10 (Base Avg: 32.83) ===
+  L: Avg 29.14 (Red: 3.70, 11.3%)
+   % red.  L compared to M: -13.0%
+  M: Avg 24.87 (Red: 7.96, 24.3%)
+   % red.  M compared to H: -14.1%
+  H: Avg 20.24 (Red: 12.59, 38.4%)
+
+=== Normal | Pool: 7d10 (Base Avg: 38.27) ===
+  L: Avg 34.17 (Red: 4.11, 10.7%)
+   % red.  L compared to M: -13.0%
+  M: Avg 29.21 (Red: 9.06, 23.7%)
+   % red.  M compared to H: -10.8%
+  H: Avg 25.06 (Red: 13.21, 34.5%)
+
+=== Normal | Pool: 8d10 (Base Avg: 44.49) ===
+  L: Avg 40.26 (Red: 4.24, 9.5%)
+   % red.  L compared to M: -11.9%
+  M: Avg 34.97 (Red: 9.53, 21.4%)
+   % red.  M compared to H: -9.2%
+  H: Avg 30.89 (Red: 13.61, 30.6%)
+
+=== Special | Pool: 2d10 (Base Avg: 11.20) ===
+  L: Avg 10.33 (Red: 0.87, 7.7%)
+   % red.  L compared to M: -14.2%
+  M: Avg 8.74 (Red: 2.46, 21.9%)
+   % red.  M compared to H: -43.1%
+  H: Avg 3.92 (Red: 7.28, 65.0%)
+
+=== Special | Pool: 3d10 (Base Avg: 16.79) ===
+  L: Avg 14.59 (Red: 2.19, 13.1%)
+   % red.  L compared to M: -20.8%
+  M: Avg 11.10 (Red: 5.68, 33.9%)
+   % red.  M compared to H: -45.3%
+  H: Avg 3.49 (Red: 13.30, 79.2%)
+
+=== Special | Pool: 4d10 (Base Avg: 22.33) ===
+  L: Avg 18.66 (Red: 3.68, 16.5%)
+   % red.  L compared to M: -18.8%
+  M: Avg 14.45 (Red: 7.89, 35.3%)
+   % red.  M compared to H: -31.6%
+  H: Avg 7.38 (Red: 14.95, 67.0%)
+
+=== Special | Pool: 5d10 (Base Avg: 27.56) ===
+  L: Avg 22.64 (Red: 4.92, 17.9%)
+   % red.  L compared to M: -16.7%
+  M: Avg 18.04 (Red: 9.52, 34.5%)
+   % red.  M compared to H: -22.5%
+  H: Avg 11.84 (Red: 15.72, 57.0%)
+
+=== Special | Pool: 6d10 (Base Avg: 33.21) ===
+  L: Avg 27.31 (Red: 5.90, 17.8%)
+   % red.  L compared to M: -14.2%
+  M: Avg 22.59 (Red: 10.61, 32.0%)
+   % red.  M compared to H: -17.6%
+  H: Avg 16.76 (Red: 16.45, 49.5%)
+
+=== Special | Pool: 7d10 (Base Avg: 38.45) ===
+  L: Avg 31.75 (Red: 6.70, 17.4%)
+   % red.  L compared to M: -11.4%
+  M: Avg 27.36 (Red: 11.09, 28.8%)
+   % red.  M compared to H: -15.0%
+  H: Avg 21.60 (Red: 16.85, 43.8%)
+
+=== Special | Pool: 8d10 (Base Avg: 43.66) ===
+  L: Avg 36.32 (Red: 7.33, 16.8%)
+   % red.  L compared to M: -9.6%
+  M: Avg 32.14 (Red: 11.52, 26.4%)
+   % red.  M compared to H: -13.1%
+  H: Avg 26.41 (Red: 17.25, 39.5%)
+
+=== Uniques | Pool: 2d10 (Base Avg: 11.15) ===
+  L: Avg 9.56 (Red: 1.59, 14.3%)
+   % red.  L compared to M: -18.4%
+  M: Avg 7.51 (Red: 3.64, 32.6%)
+   % red.  M compared to H: -32.3%
+  H: Avg 3.91 (Red: 7.23, 64.9%)
+
+=== Uniques | Pool: 3d10 (Base Avg: 16.75) ===
+  L: Avg 13.21 (Red: 3.54, 21.1%)
+   % red.  L compared to M: -26.1%
+  M: Avg 8.85 (Red: 7.90, 47.2%)
+   % red.  M compared to H: -33.0%
+  H: Avg 3.31 (Red: 13.44, 80.2%)
+
+=== Uniques | Pool: 4d10 (Base Avg: 22.32) ===
+  L: Avg 16.28 (Red: 6.03, 27.0%)
+   % red.  L compared to M: -25.2%
+  M: Avg 10.66 (Red: 11.65, 52.2%)
+   % red.  M compared to H: -33.3%
+  H: Avg 3.23 (Red: 19.08, 85.5%)
+
+=== Uniques | Pool: 5d10 (Base Avg: 27.61) ===
+  L: Avg 19.61 (Red: 7.99, 28.9%)
+   % red.  L compared to M: -23.0%
+  M: Avg 13.26 (Red: 14.34, 52.0%)
+   % red.  M compared to H: -24.3%
+  H: Avg 6.57 (Red: 21.04, 76.2%)
+
+=== Uniques | Pool: 6d10 (Base Avg: 32.78) ===
+  L: Avg 22.88 (Red: 9.90, 30.2%)
+   % red.  L compared to M: -21.0%
+  M: Avg 15.99 (Red: 16.79, 51.2%)
+   % red.  M compared to H: -16.6%
+  H: Avg 10.54 (Red: 22.23, 67.8%)
+
+=== Uniques | Pool: 7d10 (Base Avg: 38.29) ===
+  L: Avg 27.05 (Red: 11.24, 29.3%)
+   % red.  L compared to M: -17.1%
+  M: Avg 20.52 (Red: 17.77, 46.4%)
+   % red.  M compared to H: -14.7%
+  H: Avg 14.90 (Red: 23.39, 61.1%)
+
+=== Uniques | Pool: 8d10 (Base Avg: 44.49) ===
+  L: Avg 32.07 (Red: 12.41, 27.9%)
+   % red.  L compared to M: -14.6%
+  M: Avg 25.58 (Red: 18.91, 42.5%)
+   % red.  M compared to H: -11.9%
+  H: Avg 20.27 (Red: 24.22, 54.4%)
+

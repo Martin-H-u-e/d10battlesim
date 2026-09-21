@@ -9,19 +9,21 @@ sims = 10000
 rounddown = True
 
 l_threshold = 7
-l_ignore_count = 1
-l_reduction_count = 2
+l_ignore_count = 3
+l_reduction_count = 0
 
 m_threshold = 9
-m_ignore_count = 2
-m_reduction_count = 1
+m_ignore_count = 3
+m_reduction_count = 0
 
 h_ignore_count = 3
 h_threshold = 10
+special_heavy_upgrade_TOTAL_ignore_once = True
+
 
 true_dmg = 0 # can never be reduced, so it is added to the final damage after all reductions
 
-armor_type_names = ["Normal","Special","Uniques"]
+armor_type_names = ["Normal","Special","Uniques","ohter"]
 
 
 def run_d10_defense_simulation(dice_counts, rounddownYN=True):
@@ -75,11 +77,15 @@ def run_d10_defense_simulation(dice_counts, rounddownYN=True):
                     #     keep_m[i] = keep_m[i] + 1
                     h_count_m += 1
             m_res.append(sum([x for x in keep_m if x is not None]) + true_dmg)
-            
+
             # --- Heavy (H): Ignore 3, no threshold ---
             keep_h = list(row)
             i_count_h = 0
             for i in range(len(keep_h)-1, 0, -1):
+                if special_heavy_upgrade_TOTAL_ignore_once:
+                    keep_h[i] = None
+                    i_count_h += 1
+                    special_heavy_upgrade_TOTAL_ignore_once = False
                 if i_count_h >= h_ignore_count: break
                 if keep_h[i] is not None and keep_h[i] < h_threshold:
                     keep_h[i] = None
@@ -235,8 +241,8 @@ def visualize_simdata(simdata, vis_type="total_dmg_lines"):
         case "total_dmg_lines":
             #plt.figure(figsize=(15, 8.5))
             plt.figure(figsize=(18, 10))
-            plt.title(f'Total Damage recieved - {armor_type_names[1]} Upgrades')
-            plt.xlabel(f'Number of d10 dice - {sims} Simulations')
+            plt.title(f'Total Damage recieved - {armor_type_names[3]} Upgrades')
+            plt.xlabel('Attack d10 pool sizes')
             plt.ylabel('Average Damage recieved')
             plt.legend()
             plt.grid(True)

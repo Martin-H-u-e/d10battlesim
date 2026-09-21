@@ -298,7 +298,7 @@ def visualize_simdata_figure1b(simdata, vis_type="total_dmg_lines"):
             if pool_size == 11 and base_avgs[index]:
                 blocked_percentage = blocked_averages[index] / base_avgs[index] * 100
                 plt.annotate(
-                    f"-{blocked_percentage:.1f}%",
+                    f"{blocked_percentage:.1f}%",
                     (pool_size, averages[index]),
                     textcoords="offset points",
                     xytext=(17, 5),
@@ -425,7 +425,7 @@ def visualize_simdata_figure2(simdata):
         )
 
     plt.title("Average Damage Blocked by Armor - RW Flat Armor Simulation")
-    plt.xlabel("Number of d10 dice")
+    plt.xlabel('Attack d10 pool sizes')
     plt.ylabel("Average Damage Blocked")
     plt.xticks(pool_sizes)
     plt.grid(axis="y", alpha=0.3)

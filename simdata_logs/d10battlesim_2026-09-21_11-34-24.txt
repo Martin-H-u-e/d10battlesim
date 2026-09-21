@@ -1,0 +1,62 @@
+Simulation Parameters:
+  Number of simulations: 10000
+  L reduction count: 0
+  M reduction count: 1
+  M ignore count: 2
+  H ignore count: 2
+
+  L threshold: 6
+  M threshold: 8
+  H threshold: 10
+
+  Extra true damage (cannot be reduced): 0
+
+=== Pool: 2d10 (Base Avg: 11.01) ===
+  L: Avg 10.06 (Red: 0.94, 8.6%)
+   % red.  L compared to M: -14.1%
+  M: Avg 8.51 (Red: 2.49, 22.7%)
+   % red.  M compared to H: -24.6%
+  H: Avg 5.80 (Red: 5.20, 47.3%)
+
+=== Pool: 3d10 (Base Avg: 16.61) ===
+  L: Avg 14.69 (Red: 1.93, 11.6%)
+   % red.  L compared to M: -22.4%
+  M: Avg 10.97 (Red: 5.65, 34.0%)
+   % red.  M compared to H: -29.2%
+  H: Avg 6.12 (Red: 10.49, 63.2%)
+
+=== Pool: 4d10 (Base Avg: 22.04) ===
+  L: Avg 19.30 (Red: 2.74, 12.4%)
+   % red.  L compared to M: -25.7%
+  M: Avg 13.64 (Red: 8.40, 38.1%)
+   % red.  M compared to H: -19.9%
+  H: Avg 9.26 (Red: 12.78, 58.0%)
+
+=== Pool: 5d10 (Base Avg: 27.49) ===
+  L: Avg 24.13 (Red: 3.36, 12.2%)
+   % red.  L compared to M: -26.2%
+  M: Avg 16.94 (Red: 10.55, 38.4%)
+   % red.  M compared to H: -12.3%
+  H: Avg 13.57 (Red: 13.92, 50.6%)
+
+=== Pool: 6d10 (Base Avg: 32.92) ===
+  L: Avg 29.15 (Red: 3.76, 11.4%)
+   % red.  L compared to M: -25.2%
+  M: Avg 20.85 (Red: 12.07, 36.7%)
+   % red.  M compared to H: -7.7%
+  H: Avg 18.30 (Red: 14.62, 44.4%)
+
+=== Pool: 7d10 (Base Avg: 38.43) ===
+  L: Avg 34.39 (Red: 4.04, 10.5%)
+   % red.  L compared to M: -23.6%
+  M: Avg 25.32 (Red: 13.11, 34.1%)
+   % red.  M compared to H: -5.5%
+  H: Avg 23.23 (Red: 15.20, 39.6%)
+
+=== Pool: 8d10 (Base Avg: 43.96) ===
+  L: Avg 39.71 (Red: 4.25, 9.7%)
+   % red.  L compared to M: -21.8%
+  M: Avg 30.13 (Red: 13.83, 31.5%)
+   % red.  M compared to H: -4.0%
+  H: Avg 28.36 (Red: 15.60, 35.5%)
+
