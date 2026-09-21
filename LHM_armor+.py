@@ -4,17 +4,17 @@ from pathlib import Path
 LOG_DIR = Path(__file__).resolve().parent / "simdata_logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-# np.random.seed(42)
-rnd_seed = np.random.randint(1, 100)
-np.random.seed(rnd_seed)
-sims = 100
+np.random.seed(42)
+# rnd_seed = np.random.randint(1, 100)
+# np.random.seed(rnd_seed)
+sims = 1000
 rounddown = True
 
 
 upgrade_tier_amounts = 3
 armor_tier_names = ["Normal","Special","Uniques"]
 
-TRUE_DMG = 0 # can never be reduced, so it is added to the final damage after all reductions
+TRUE_DMG = 5 # can never be reduced, so it is added to the final damage after all reductions
 
 # light armor parameters per upgrade tier
 L_HARDNESS          = [ 6, 6, 7]    # threshhold, if ignoring possible
@@ -541,6 +541,12 @@ def visualize_blocked_damage_grouped_bar_chart(
     base_averages = np.array([
         records_by_key[(0, pool_size)]["base_avg"] for pool_size in pool_sizes
     ])
+    if TRUE_DMG > 0:
+        total_averages = base_averages + TRUE_DMG
+        base_average_label = "base total avg."
+    else:
+        total_averages = base_averages
+        base_average_label = "total avg. dmg"
 
     plt.figure(figsize=(18, 10))
     first_position = -(len(displayed_armor_tiers) - 1) * bar_width / 2
@@ -550,13 +556,13 @@ def visualize_blocked_damage_grouped_bar_chart(
         field = armor_fields[armor_type]
         positions = group_positions + first_position + bar_index * bar_width
         blocked_damage = np.array([
-            records_by_key[(tier, pool_size)]["base_avg"]
+            records_by_key[(tier, pool_size)]["avg_nrml_dmg"]
             - records_by_key[(tier, pool_size)][field]
             for pool_size in pool_sizes
         ])
+        blocked_percentages = blocked_damage / total_averages * 100
         bar_positions[(armor_type, tier)] = positions
         bar_tops[(armor_type, tier)] = blocked_damage
-        blocked_percentages = blocked_damage / base_averages * 100
         tier_name = records_by_key[(tier, pool_sizes[0])]["upgrade_tier_name"]
 
         plt.bar(
@@ -580,12 +586,22 @@ def visualize_blocked_damage_grouped_bar_chart(
                     fontsize=7,
                 )
         plt.hlines(
-            base_averages,
+            total_averages,
             positions - bar_width / 2,
             positions + bar_width / 2,
             color="black",
             linewidth=1.0,
         )
+
+        if TRUE_DMG > 0:
+            plt.hlines(
+                base_averages,
+                positions - bar_width / 2,
+                positions + bar_width / 2,
+                color="black",
+                linestyle=":",
+                linewidth=1.0,
+            )
 
     tier_line_colors = {
         "Normal": "grey",
@@ -619,17 +635,30 @@ def visualize_blocked_damage_grouped_bar_chart(
                 label="_nolegend_",
             )
 
-    for group_position, base_average in zip(group_positions, base_averages):
+    for group_position, base_average, total_average in zip(
+        group_positions, base_averages, total_averages
+    ):
         plt.text(
             float(group_position),
-            base_average + 0.15,
-            "total avg. dmg",
+            total_average + 0.15,
+            "total avg. dmg" if TRUE_DMG > 0 else base_average_label,
             ha="center",
             va="bottom",
             fontsize=7,
             color="black",
             rotation=0,
         )
+        if TRUE_DMG > 0:
+            plt.text(
+                float(group_position),
+                base_average + 0.15,
+                base_average_label,
+                ha="center",
+                va="bottom",
+                fontsize=7,
+                color="black",
+                rotation=0,
+            )
 
     plt.xticks(
         group_positions,
