@@ -7,7 +7,7 @@ LOG_DIR.mkdir(exist_ok=True)
 np.random.seed(42)
 # rnd_seed = np.random.randint(1, 100)
 # np.random.seed(rnd_seed)
-sims = 1000
+sims = 2000
 rounddown = True
 
 
@@ -15,32 +15,44 @@ upgrade_tier_amounts = 3
 armor_tier_names = ["Normal","Special","Uniques"]
 
 TRUE_DMG = 5 # can never be reduced, so it is added to the final damage after all reductions
+USE_LOWEST_DIE_MAX = True
 
 # light armor parameters per upgrade tier
 L_HARDNESS          = [ 6, 6, 7]    # threshhold, if ignoring possible
 L_IGNORE_DIE_COUNT  = [ 1, 2, 3]
+# L_LOWEST_DIE_MAX    = [10, 4, 2]
+L_LOWEST_DIE_MAX    = [8, 5, 3]
 l_reduction_count = None
 
 # medium armor parameters per upgrade tier
 M_HARDNESS          = [ 7, 8, 9]
 M_IGNORE_DIE_COUNT  = [ 2, 3, 3]
+# M_LOWEST_DIE_MAX    = [10, 4, 2]
+M_LOWEST_DIE_MAX    = [8, 5, 3]
+
 M_TOTAL_IGNORE_ONCE = [False,False,False]
-M_UNREST_HALVING_ONCE = [False,False,False]
+M_UNREST_HALVING_ONCE = [False,False,True]
 m_reduction_count = None
 
 # heavy armor parameters per upgrade tier
 H_HARDNESS          = [ 9,10,10]
-H_IGNORE_DIE_COUNT  = [ 2, 2, 3]
-H_TOTAL_IGNORE_ONCE = [False,True,True]
+H_IGNORE_DIE_COUNT  = [ 2, 3, 4]
+# H_LOWEST_DIE_MAX    = [10, 4, 2]
+H_LOWEST_DIE_MAX    = [8, 5, 3]
+H_TOTAL_IGNORE_ONCE = [False,False,True]
 
 
 
 def run_d10_defense_simulation(dice_counts, rounddownYN=True):
     simdata = []
+    rolls_by_pool_size = {
+        dc: np.random.randint(1, 11, size=(sims, dc))
+        for dc in dice_counts
+    }
 
     for tier in range(upgrade_tier_amounts):
         for dc in dice_counts:
-            rolls = np.random.randint(1, 11, size=(sims, dc))
+            rolls = rolls_by_pool_size[dc]
             base_sum = np.sum(rolls, axis=1)
             sorted_rolls = np.sort(rolls, axis=1) # ascending
             
@@ -52,6 +64,9 @@ def run_d10_defense_simulation(dice_counts, rounddownYN=True):
                 
                 # --- Light (L) ---------------------------------------------- Light (L) ---
                 keep_l = list(row)
+                if USE_LOWEST_DIE_MAX:
+                    if keep_l[0] > L_LOWEST_DIE_MAX[tier]:
+                        keep_l[0] = L_LOWEST_DIE_MAX[tier]
                 i_count = 0
                 # Apply ignores first (best value)
                 for i in range(len(keep_l)-1, 0, -1):
@@ -73,6 +88,9 @@ def run_d10_defense_simulation(dice_counts, rounddownYN=True):
 
                 # --- Medium (M) ---------------------------------------------- Medium(M) ---
                 keep_m = list(row)
+                if USE_LOWEST_DIE_MAX:
+                    if keep_m[0] > M_LOWEST_DIE_MAX[tier]:
+                        keep_m[0] = M_LOWEST_DIE_MAX[tier]
                 i_count_m = 0
                 # Apply ignores (best value remaining)
                 for i in range(len(keep_m)-1, 0, -1):
@@ -97,6 +115,9 @@ def run_d10_defense_simulation(dice_counts, rounddownYN=True):
 
                 # --- Heavy (H) ---------------------------------------------- Heavy (H) ---
                 keep_h = list(row)
+                if USE_LOWEST_DIE_MAX:
+                    if keep_h[0] > H_LOWEST_DIE_MAX[tier]:
+                        keep_h[0] = H_LOWEST_DIE_MAX[tier]
                 i_count_h = 0
                 for i in range(len(keep_h)-1, 0, -1):
                     if H_TOTAL_IGNORE_ONCE[tier] and i_count_h == 0:
@@ -488,6 +509,7 @@ def visualize_blocked_damage_grouped_bar_chart(
     simdata,
     armor_types=None,
     selected_tiers=None,
+    y_max=60,
 ):
     import matplotlib.pyplot as plt
 
@@ -651,6 +673,16 @@ def visualize_blocked_damage_grouped_bar_chart(
         if TRUE_DMG > 0:
             plt.text(
                 float(group_position),
+                total_average - 0.15,
+                f"+{TRUE_DMG:g} dmg",
+                ha="center",
+                va="top",
+                fontsize=7,
+                color="black",
+                rotation=0,
+            )
+            plt.text(
+                float(group_position),
                 base_average + 0.15,
                 base_average_label,
                 ha="center",
@@ -668,7 +700,8 @@ def visualize_blocked_damage_grouped_bar_chart(
     plt.ylabel("Damage blocked")
     plt.title("Damage Blocked by Armor Group and Upgrade Tier")
     plt.grid(axis="y", alpha=0.3)
-    base_params = f"Simulation Parameters:\n  Number of sims: {sims}\n  L reduction count: {l_reduction_count}\n  L ignore count: {L_IGNORE_DIE_COUNT}\n  M reduction count: {m_reduction_count}\n  M ignore count: {M_IGNORE_DIE_COUNT}\n  M ignore once: {M_TOTAL_IGNORE_ONCE}\n  M halve once: {M_UNREST_HALVING_ONCE}\n  H ignore count: {H_IGNORE_DIE_COUNT}\n  H ignore once: {H_TOTAL_IGNORE_ONCE}\n\n  L threshold: {L_HARDNESS}\n  M threshold: {M_HARDNESS}\n  H threshold: {H_HARDNESS}\n\n  True-dmg: {TRUE_DMG}\n\n  Rounddown: {rounddown}"
+    plt.ylim(0, y_max)
+    base_params = f"Simulation Parameters:\n  Number of sims: {sims}\n  L reduction count: {l_reduction_count}\n  L ignore count: {L_IGNORE_DIE_COUNT}\n  M reduction count: {m_reduction_count}\n  M ignore count: {M_IGNORE_DIE_COUNT}\n  M ignore once: {M_TOTAL_IGNORE_ONCE}\n  M halve once: {M_UNREST_HALVING_ONCE}\n  H ignore count: {H_IGNORE_DIE_COUNT}\n  H ignore once: {H_TOTAL_IGNORE_ONCE}\n\n  L threshold: {L_HARDNESS}\n  L lowest die max: {L_LOWEST_DIE_MAX}\n  M threshold: {M_HARDNESS}\n  M lowest die max: {M_LOWEST_DIE_MAX}\n  H threshold: {H_HARDNESS}\n  H lowest die max: {H_LOWEST_DIE_MAX}\n  Use lowest max: {USE_LOWEST_DIE_MAX}\n  True-dmg: {TRUE_DMG}\n\n  Rounddown: {rounddown}"
     plt.text(
         0.02,
         0.98,
@@ -689,7 +722,7 @@ def visualize_blocked_damage_grouped_bar_chart(
     print(f"  {output_file}")
 
 
-dice_amounts = [2, 3, 4, 5, 6, 7, 8]
+dice_amounts = [1, 2, 3, 4, 5, 6, 7, 8, 9 ,10]
 simdata = run_d10_defense_simulation(dice_amounts, rounddownYN=rounddown)
 
 # write_simdata_to_txt_file(simdata)
@@ -700,5 +733,5 @@ simdata = run_d10_defense_simulation(dice_amounts, rounddownYN=rounddown)
 
 # visualize_blocked_damage_bar_chart(simdata)
 
-visualize_blocked_damage_grouped_bar_chart(simdata)
+visualize_blocked_damage_grouped_bar_chart(simdata,y_max=63)
 # visualize_blocked_damage_grouped_bar_chart(simdata,armor_types=["L","M","H"],selected_tiers={"L":1,"M":1,"H":1})

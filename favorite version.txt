@@ -1,0 +1,10 @@
+La 1,2,3			La 1,2,3
+Ma 2,3,4			Ma 2,3,2 +0
+Ha 2,3,4			ha 2,3,3 +1
+		Hardness			- you can take away w10 damage dice that are lower or equal to your armor hardness.
+Lt 6,6,7	5,5,6
+Mt 7,8,9	6,7,7
+Ht 9,10,10	8,9,9
+   (t3 + one Full-Ignore)	One of your Armor Dice can ignore all damage
+
+Lowes Max: 8,5,3
