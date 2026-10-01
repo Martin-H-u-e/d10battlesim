@@ -429,82 +429,6 @@ def visualize_simdata_by_upgrade_tier(simdata):
         print(f"  {output_file}")
 
 
-def visualize_blocked_damage_bar_chart(simdata):
-    import matplotlib.pyplot as plt
-
-    tier_colors = {
-        "L": ["#a5d6a7", "#66bb6a", "#2e7d32"],
-        "M": ["#90caf9", "#42a5f5", "#1565c0"],
-        "H": ["#ef9a9a", "#ef5350", "#c62828"],
-    }
-    armor_fields = {"L": "L_avg", "M": "M_avg", "H": "H_avg"}
-    pool_sizes = sorted({data["pool_size"] for data in simdata})
-    records_by_key = {
-        (data["upgrade_tier"], data["pool_size"]): data for data in simdata
-    }
-    positions = np.arange(len(pool_sizes))
-    bottoms = np.zeros(len(pool_sizes))
-    bar_width = 0.8
-    base_averages = np.array([
-        records_by_key[(0, pool_size)]["base_avg"] for pool_size in pool_sizes
-    ])
-
-    plt.figure(figsize=(18, 10))
-    plt.hlines(
-        base_averages,
-        positions - bar_width / 2,
-        positions + bar_width / 2,
-        color="black",
-        linewidth=2,
-        label="Total Average Damage (no reduction)",
-    )
-    for armor_type, field in armor_fields.items():
-        for tier in range(upgrade_tier_amounts):
-            blocked_damage = np.array([
-                data["base_avg"] - data[field]
-                for pool_size in pool_sizes
-                for data in [records_by_key[(tier, pool_size)]]
-            ])
-            blocked_percentages = blocked_damage / base_averages * 100
-            tier_name = records_by_key[(tier, pool_sizes[0])]["upgrade_tier_name"]
-            plt.bar(
-                positions,
-                blocked_damage,
-                bottom=bottoms,
-                color=tier_colors[armor_type][tier],
-                width=bar_width,
-                label=f"{tier_name} {armor_type}",
-            )
-            for position, bottom, blocked, percentage in zip(
-                positions, bottoms, blocked_damage, blocked_percentages
-            ):
-                if blocked > 0:
-                    plt.text(
-                        float(position),
-                        bottom + blocked / 2,
-                        f"{percentage:.1f}%",
-                        ha="center",
-                        va="center",
-                        fontsize=8,
-                    )
-            bottoms += blocked_damage
-
-    plt.xticks(positions, [f"{pool_size}d10" for pool_size in pool_sizes])
-    plt.xlabel("Attack d10 pool sizes")
-    plt.ylabel("Damage blocked")
-    plt.title("Damage Blocked by All Armor Tiers")
-    plt.grid(axis="y", alpha=0.3)
-    plt.legend()
-    plt.tight_layout()
-
-    output_file = LOG_DIR / f"d10battlesim_{tier_name.lower()}_9bar.svg"
-    plt.savefig(output_file, format="svg", bbox_inches="tight")
-    plt.close()
-
-    print(" 9 bar chart saved to:")
-    print(f"  {output_file}")
-
-
 def visualize_blocked_damage_grouped_bar_chart(
     simdata,
     armor_types=None,
@@ -730,8 +654,6 @@ simdata = run_d10_defense_simulation(dice_amounts, rounddownYN=rounddown)
 
 # visualize_simdata(simdata, display_groups_separately=True)
 # visualize_simdata_by_upgrade_tier(simdata) # <---
-
-# visualize_blocked_damage_bar_chart(simdata)
 
 visualize_blocked_damage_grouped_bar_chart(simdata,y_max=63)
 # visualize_blocked_damage_grouped_bar_chart(simdata,armor_types=["L","M","H"],selected_tiers={"L":1,"M":1,"H":1})

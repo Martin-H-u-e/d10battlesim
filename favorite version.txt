@@ -7,4 +7,4 @@ Mt 7,8,9	6,7,7
 Ht 9,10,10	8,9,9
    (t3 + one Full-Ignore)	One of your Armor Dice can ignore all damage
 
-Lowes Max: 8,5,3
+Lowest Max: 8,5,3
