@@ -7,8 +7,9 @@ LOG_DIR.mkdir(exist_ok=True)
 np.random.seed(42)
 # rnd_seed = np.random.randint(1, 100)
 # np.random.seed(rnd_seed)
-sims = 2000
+sims = 200
 rounddown = True
+simulate_playerHP = True
 
 upgrade_tier_amounts = 3
 armor_tier_names = ["Normal","Special","Uniques"]
@@ -18,6 +19,7 @@ H_desired_avg_5d10_armor_values_perTier = [47.00, 63.70, 72.10]
 
 TRUE_DMG = 0 # can never be reduced, so it is added to the final damage after all reductions
 USE_LOWEST_DIE_MAX = True
+PLAYER_BASE_HP = 100
 
 # light armor parameters per upgrade tier
 L_HARDNESS          = [ 6, 8, 9]    # threshhold, if ignoring possible
@@ -44,8 +46,199 @@ H_TOTAL_IGNORE_ONCE = [False,False,False]
 H_LOWEST_DIE_MAX    = [6, 3, 1]
 # H_LOWEST_DIE_MAX    = [ 5, 5, 5]
 
-def run_d10_defense_simulation(dice_counts, rounddownYN=True):
+def reduce_dice_for_tier(row, tier, rounddownYN):
+    keep_l = list(row)
+    if USE_LOWEST_DIE_MAX and keep_l[0] > L_LOWEST_DIE_MAX[tier]:
+        keep_l[0] = L_LOWEST_DIE_MAX[tier]
+    ignore_count_l = 0
+    for i in range(len(keep_l) - 1, 0, -1):
+        if ignore_count_l >= L_IGNORE_DIE_COUNT[tier]:
+            break
+        if keep_l[i] < L_HARDNESS[tier]:
+            keep_l[i] = None
+            ignore_count_l += 1
+    halve_count_l = 0
+    for i in range(len(keep_l) - 1, 0, -1):
+        if halve_count_l >= (l_reduction_count or 0):
+            break
+        if keep_l[i] is not None and keep_l[i] < L_HARDNESS[tier]:
+            keep_l[i] = int(keep_l[i] / 2.0)
+            if not rounddownYN:
+                keep_l[i] += 1
+            halve_count_l += 1
+    light_damage = sum(value for value in keep_l if value is not None) + TRUE_DMG
+
+    keep_m = list(row)
+    if USE_LOWEST_DIE_MAX and keep_m[0] > M_LOWEST_DIE_MAX[tier]:
+        keep_m[0] = M_LOWEST_DIE_MAX[tier]
+    ignore_count_m = 0
+    for i in range(len(keep_m) - 1, 0, -1):
+        if M_UNREST_HALVING_ONCE[tier] and ignore_count_m == 0:
+            if keep_m[i] is not None:
+                keep_m[i] = int(keep_m[i] / 2.0)
+            else:
+                break
+            if not rounddownYN:
+                keep_m[i] += 1
+            ignore_count_m += 1
+        if M_TOTAL_IGNORE_ONCE[tier] and ignore_count_m == 0:
+            keep_m[i] = None
+            ignore_count_m += 1
+        if ignore_count_m >= M_IGNORE_DIE_COUNT[tier]:
+            break
+        if keep_m[i] is not None and keep_m[i] < M_HARDNESS[tier]:
+            keep_m[i] = None
+            ignore_count_m += 1
+    medium_damage = sum(value for value in keep_m if value is not None) + TRUE_DMG
+
+    keep_h = list(row)
+    if USE_LOWEST_DIE_MAX and keep_h[0] > H_LOWEST_DIE_MAX[tier]:
+        keep_h[0] = H_LOWEST_DIE_MAX[tier]
+    ignore_count_h = 0
+    for i in range(len(keep_h) - 1, 0, -1):
+        if H_TOTAL_IGNORE_ONCE[tier] and ignore_count_h == 0:
+            keep_h[i] = None
+            ignore_count_h += 1
+        if ignore_count_h >= H_IGNORE_DIE_COUNT[tier]:
+            break
+        if keep_h[i] is not None and keep_h[i] < H_HARDNESS[tier]:
+            keep_h[i] = None
+            ignore_count_h += 1
+    halve_count_h = 0
+    for i in range(len(keep_h) - 1, 0, -1):
+        if halve_count_h >= H_HALVING_DIE_COUNT[tier]:
+            break
+        if keep_h[i] is not None and keep_h[i] < H_HARDNESS[tier]:
+            keep_h[i] = int(keep_h[i] / 2.0)
+            if not rounddownYN:
+                keep_h[i] += 1
+            halve_count_h += 1
+    heavy_damage = sum(value for value in keep_h if value is not None) + TRUE_DMG
+
+    return light_damage, medium_damage, heavy_damage
+
+
+SIMPLE_TIER_THRESHOLDS = {
+    "L": [2, 3, 4],
+    "M": [5, 6, 7],
+    "H": [8, 9, 10],
+}
+
+
+def reduce_dice_for_tier_simple(row, tier, rounddownYN=True):
+    """Apply the simplified armor rule set: ignore every die result below the threshold.
+
+    Rules are:
+      L1: 2, L2: 3, L3: 4
+      M1: 5, M2: 6, M3: 7
+      H1: 8, H2: 9, H3: 10
+
+    The `rounddownYN` argument is accepted for compatibility with the existing API,
+    but the simplified model does not use any halving or layered reduction rules.
+    """
+    if not 0 <= tier < upgrade_tier_amounts:
+        raise ValueError(f"tier must be between 0 and {upgrade_tier_amounts - 1}")
+
+    keep_l = [value for value in row if value >= SIMPLE_TIER_THRESHOLDS["L"][tier]]
+    keep_m = [value for value in row if value >= SIMPLE_TIER_THRESHOLDS["M"][tier]]
+    keep_h = [value for value in row if value >= SIMPLE_TIER_THRESHOLDS["H"][tier]]
+
+    light_damage = sum(keep_l) + TRUE_DMG
+    medium_damage = sum(keep_m) + TRUE_DMG
+    heavy_damage = sum(keep_h) + TRUE_DMG
+    return light_damage, medium_damage, heavy_damage
+
+
+def simulate_player_hp_survival(
+    dice_counts,
+    chunks,
+    rounddownYN=True,
+    reduction_func=None,
+):
+    if reduction_func is None:
+        reduction_func = reduce_dice_for_tier
+
+    armor_types = ("L", "M", "H")
+    survival_totals = {
+        (pool_size, tier, armor_type): 0
+        for pool_size in dice_counts
+        for tier in range(upgrade_tier_amounts)
+        for armor_type in armor_types
+    }
+    base_survival_totals = {pool_size: 0 for pool_size in dice_counts}
+
+    for _ in range(chunks):
+        hit_points = {
+            key: PLAYER_BASE_HP for key in survival_totals
+        }
+        base_hit_points = {
+            pool_size: PLAYER_BASE_HP for pool_size in dice_counts
+        }
+        survived_rounds = {}
+        base_survived_rounds = {}
+        round_number = 0
+
+        while (
+            any(current_hp >= 1 for current_hp in hit_points.values())
+            or any(current_hp >= 1 for current_hp in base_hit_points.values())
+        ):
+            round_number += 1
+            for pool_size in dice_counts:
+                active_players = [
+                    key for key, current_hp in hit_points.items()
+                    if key[0] == pool_size and current_hp >= 1
+                ]
+                base_is_alive = base_hit_points[pool_size] >= 1
+                if not active_players and not base_is_alive:
+                    continue
+
+                rolled_dice = np.sort(np.random.randint(1, 11, size=pool_size))
+                if base_is_alive:
+                    base_hit_points[pool_size] -= (
+                        int(np.sum(rolled_dice)) + TRUE_DMG
+                    )
+                    if base_hit_points[pool_size] < 1:
+                        base_survived_rounds[pool_size] = round_number - 1
+                if not active_players:
+                    continue
+
+                for tier in range(upgrade_tier_amounts):
+                    damages = reduction_func(rolled_dice, tier, rounddownYN)
+                    for armor_type, damage in zip(armor_types, damages):
+                        key = (pool_size, tier, armor_type)
+                        if hit_points[key] < 1:
+                            continue
+                        hit_points[key] -= damage
+                        if hit_points[key] < 1:
+                            survived_rounds[key] = round_number - 1
+
+        for key, rounds in survived_rounds.items():
+            survival_totals[key] += rounds
+        for pool_size, rounds in base_survived_rounds.items():
+            base_survival_totals[pool_size] += rounds
+
+    survival_averages = {
+        key: total_rounds / chunks
+        for key, total_rounds in survival_totals.items()
+    }
+    base_survival_averages = {
+        pool_size: total_rounds / chunks
+        for pool_size, total_rounds in base_survival_totals.items()
+    }
+    return survival_averages, base_survival_averages
+
+
+def run_d10_defense_simulation(
+    dice_counts,
+    rounddownYN=True,
+    simulate_playerHP=False,
+    run_simple_sim=False,
+):
+    dice_counts = list(dice_counts)
     simdata = []
+    reduction_func = (
+        reduce_dice_for_tier_simple if run_simple_sim else reduce_dice_for_tier
+    )
     rolls_by_pool_size = {
         dc: np.random.randint(1, 11, size=(sims, dc))
         for dc in dice_counts
@@ -58,87 +251,15 @@ def run_d10_defense_simulation(dice_counts, rounddownYN=True):
             sorted_rolls = np.sort(rolls, axis=1) # ascending
             
             l_res, m_res, h_res = [], [], []
-            
+
             for row in sorted_rolls:
-                # Protected lowest die is row[0]
-                # Eligible dice are row[1:]
-                
-                # --- Light (L) ---------------------------------------------- Light (L) ---
-                keep_l = list(row)
-                if USE_LOWEST_DIE_MAX:
-                    if keep_l[0] > L_LOWEST_DIE_MAX[tier]:
-                        keep_l[0] = L_LOWEST_DIE_MAX[tier]
-                i_count = 0
-                # Apply ignores first (best value)
-                for i in range(len(keep_l)-1, 0, -1):
-                    if i_count >= L_IGNORE_DIE_COUNT[tier]: break
-                    if keep_l[i] < L_HARDNESS[tier]:
-                        keep_l[i] = None
-                        i_count += 1
-                # Apply halving next
-                h_count_l = 0
-                for i in range(len(keep_l)-1, 0, -1):
-                    if h_count_l >= (l_reduction_count or 0): break
-                    if keep_l[i] is not None and keep_l[i] < L_HARDNESS[tier]:
-                        keep_l[i] = int(keep_l[i] / 2.0)
-                        if not rounddownYN:
-                            keep_l[i] = keep_l[i] + 1
-                        h_count_l += 1
-                l_res.append(sum([x for x in keep_l if x is not None]) + TRUE_DMG)
-                # ^^^ Light (L) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Light (L) ^^^
+                light_damage, medium_damage, heavy_damage = reduction_func(
+                    row, tier, rounddownYN
+                )
+                l_res.append(light_damage)
+                m_res.append(medium_damage)
+                h_res.append(heavy_damage)
 
-                # --- Medium (M) ---------------------------------------------- Medium(M) ---
-                keep_m = list(row)
-                if USE_LOWEST_DIE_MAX:
-                    if keep_m[0] > M_LOWEST_DIE_MAX[tier]:
-                        keep_m[0] = M_LOWEST_DIE_MAX[tier]
-                i_count_m = 0
-                # Apply ignores (best value remaining)
-                for i in range(len(keep_m)-1, 0, -1):
-                    # First: Apply possible unrestriced halbings first
-                    if M_UNREST_HALVING_ONCE[tier] and i_count_m == 0:
-                        if keep_m[i] is not None:
-                            keep_m[i] = int(keep_m[i] / 2.0)
-                        else:
-                            break
-                        if not rounddownYN:
-                            keep_m[i] += 1
-                        i_count_m += 1
-                    if M_TOTAL_IGNORE_ONCE[tier] and i_count_m == 0:
-                        keep_m[i] = None
-                        i_count_m += 1
-                    if i_count_m >= M_IGNORE_DIE_COUNT[tier]: break
-                    if keep_m[i] is not None and keep_m[i] < M_HARDNESS[tier]:
-                        keep_m[i] = None
-                        i_count_m += 1
-                m_res.append(sum([x for x in keep_m if x is not None]) + TRUE_DMG)
-                # ^^^ Medium (M) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Medium(M) ^^^
-
-                # --- Heavy (H) ---------------------------------------------- Heavy (H) ---
-                keep_h = list(row)
-                if USE_LOWEST_DIE_MAX:
-                    if keep_h[0] > H_LOWEST_DIE_MAX[tier]:
-                        keep_h[0] = H_LOWEST_DIE_MAX[tier]
-                i_count_h = 0
-                for i in range(len(keep_h)-1, 0, -1):
-                    if H_TOTAL_IGNORE_ONCE[tier] and i_count_h == 0:
-                        keep_h[i] = None
-                        i_count_h += 1
-                    if i_count_h >= H_IGNORE_DIE_COUNT[tier]: break
-                    if keep_h[i] is not None and keep_h[i] < H_HARDNESS[tier]:
-                        keep_h[i] = None
-                        i_count_h += 1
-                halv_count_h = 0
-                for i in range(len(keep_h)-1, 0, -1):
-                    if halv_count_h >= H_HALVING_DIE_COUNT[tier]: break
-                    if keep_h[i] is not None and keep_h[i] < H_HARDNESS[tier]:
-                        keep_h[i] = int(keep_h[i] / 2.0)
-                        if not rounddownYN:
-                            keep_h[i] += 1
-                        halv_count_h += 1
-                h_res.append(sum([x for x in keep_h if x is not None]) + TRUE_DMG)
-                # ^^^ Heavy (H) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Heavy (H) ^^^
-                
             base_mean = np.mean(base_sum)
             if TRUE_DMG > 0:
                 mean_nrml_dmg = base_mean + TRUE_DMG
@@ -172,6 +293,22 @@ def run_d10_defense_simulation(dice_counts, rounddownYN=True):
                 "L_to_M_red": m_to_l,
                 "M_to_H_red": h_to_m
                 })
+
+    if simulate_playerHP:
+        survival_averages, base_survival_averages = simulate_player_hp_survival(
+            dice_counts,
+            chunks=sims,
+            rounddownYN=rounddownYN,
+            reduction_func=reduction_func,
+        )
+        for data in simdata:
+            for armor_type in ("L", "M", "H"):
+                data[f"{armor_type}_survived_rounds"] = survival_averages[
+                    (data["pool_size"], data["upgrade_tier"], armor_type)
+                ]
+            data["base_survived_rounds"] = base_survival_averages[
+                data["pool_size"]
+            ]
 
     return simdata
 
@@ -250,6 +387,14 @@ def write_simdata_to_CSV_googleSheet(simdata):
         writer = csv.writer(csvfile, delimiter=';')
 
         fieldnames = ["upgrade_tier", "upgrade_tier_name", "pool_size", "base_avg", "avg_nrml_dmg", "L_avg", "M_avg", "H_avg", "L_red", "M_red", "H_red", "L_to_M_red", "M_to_H_red"]
+        survival_fields = [
+            f"{armor_type}_survived_rounds"
+            for armor_type in ("L", "M", "H")
+        ] + ["base_survived_rounds"]
+        if simdataCpy and all(
+            field in simdataCpy[0] for field in survival_fields
+        ):
+            fieldnames.extend(survival_fields)
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
 
@@ -262,7 +407,14 @@ def write_simdata_to_CSV_googleSheet(simdata):
             data["M_to_H_red"] = round(data["M_to_H_red"] / 100, 2)
 
             # 2. Format numbers: convert floats to strings and replace '.' with ','
-            for key in ["base_avg", "avg_nrml_dmg", "L_avg", "M_avg", "H_avg", "L_red", "M_red", "H_red", "L_to_M_red", "M_to_H_red"]:
+            numeric_fields = [
+                "base_avg", "avg_nrml_dmg", "L_avg", "M_avg", "H_avg",
+                "L_red", "M_red", "H_red", "L_to_M_red", "M_to_H_red",
+            ]
+            numeric_fields.extend(
+                field for field in survival_fields if field in data
+            )
+            for key in numeric_fields:
                 data[key] = str(data[key]).replace('.', ',')
 
         for data in simdataCpy:
@@ -445,6 +597,9 @@ def visualize_blocked_damage_grouped_bar_chart(
     y_max=60,
     show_percentage_offset=True,
     group_legend_by_armor_type=False,
+    show_survived_rounds=False,
+    fix_survived_rounds_y_max=False,
+    survived_rounds_y_max=25,
 ):
     import matplotlib.pyplot as plt
 
@@ -499,7 +654,8 @@ def visualize_blocked_damage_grouped_bar_chart(
     }
 
     group_positions = np.arange(len(pool_sizes), dtype=float)
-    bar_width = min(0.8 / len(displayed_armor_tiers), 0.2)
+    displayed_bar_count = len(displayed_armor_tiers) + int(show_survived_rounds)
+    bar_width = min(0.8 / displayed_bar_count, 0.2)
     base_averages = np.array([
         records_by_key[(0, pool_size)]["base_avg"] for pool_size in pool_sizes
     ])
@@ -510,68 +666,132 @@ def visualize_blocked_damage_grouped_bar_chart(
         total_averages = base_averages
         base_average_label = "total avg. dmg"
     visible_reference_lines = total_averages <= y_max
+    chart_y_max = y_max
+    if show_survived_rounds:
+        if fix_survived_rounds_y_max:
+            chart_y_max = survived_rounds_y_max
+        else:
+            survival_values = [
+                records_by_key[(tier, pool_size)][f"{armor_type}_survived_rounds"]
+                for armor_type, tier in displayed_armor_tiers
+                for pool_size in pool_sizes
+            ]
+            survival_values.extend(
+                records_by_key[(0, pool_size)]["base_survived_rounds"]
+                for pool_size in pool_sizes
+            )
+            chart_y_max = max(1, int(np.ceil(max(survival_values) * 1.15)))
 
     plt.figure(figsize=(17, 8.9))
-    first_position = -(len(displayed_armor_tiers) - 1) * bar_width / 2
+    first_position = -(displayed_bar_count - 1) * bar_width / 2
+    armor_position_offset = int(show_survived_rounds)
     bar_positions = {}
     bar_tops = {}
     for bar_index, (armor_type, tier) in enumerate(displayed_armor_tiers):
         field = armor_fields[armor_type]
-        positions = group_positions + first_position + bar_index * bar_width
-        blocked_damage = np.array([
-            records_by_key[(tier, pool_size)]["avg_nrml_dmg"]
-            - records_by_key[(tier, pool_size)][field]
-            for pool_size in pool_sizes
-        ])
-        blocked_percentages = blocked_damage / total_averages * 100
+        positions = (
+            group_positions
+            + first_position
+            + (bar_index + armor_position_offset) * bar_width
+        )
+        if show_survived_rounds:
+            bar_values = np.array([
+                records_by_key[(tier, pool_size)][
+                    f"{armor_type}_survived_rounds"
+                ]
+                for pool_size in pool_sizes
+            ])
+            blocked_percentages = np.zeros(len(pool_sizes))
+        else:
+            blocked_damage = np.array([
+                records_by_key[(tier, pool_size)]["avg_nrml_dmg"]
+                - records_by_key[(tier, pool_size)][field]
+                for pool_size in pool_sizes
+            ])
+            bar_values = blocked_damage
+            blocked_percentages = blocked_damage / total_averages * 100
         bar_positions[(armor_type, tier)] = positions
-        bar_tops[(armor_type, tier)] = blocked_damage
+        bar_tops[(armor_type, tier)] = bar_values
         tier_name = records_by_key[(tier, pool_sizes[0])]["upgrade_tier_name"]
 
         plt.bar(
             positions,
-            blocked_damage,
+            bar_values,
             width=bar_width,
             color=tier_colors[armor_type][tier],
             label=f"{tier_name} {armor_labels[armor_type]}",
         )
 
-        for position, blocked, percentage, pool_size in zip(
-            positions, blocked_damage, blocked_percentages, pool_sizes
+        for bar_index, (position, bar_value, pool_size) in enumerate(
+            zip(positions, bar_values, pool_sizes)
         ):
-            if blocked > 0:
-                label = f"{percentage:.1f}%"
-                if show_percentage_offset:
-                    if pool_size == 5:
+            if bar_value > 0:
+                if show_survived_rounds:
+                    base_rounds = records_by_key[(0, pool_size)][
+                        "base_survived_rounds"
+                    ]
+                    percent_increase = (bar_value / base_rounds - 1) * 100
+                    label = f"{bar_value:.1f}\n{percent_increase:+.1f}%"
+                else:
+                    percentage = blocked_percentages[bar_index]
+                    label = f"{percentage:.1f}%"
+                    if show_percentage_offset and pool_size == 5:
                         target = target_mitigation[armor_type][tier]
-                        label = f"{percentage:.1f}%\nTarget {target:.1f}%"
                         difference = percentage - target
-                        label += f"\n{difference:+.1f} pp"
+                        label = (
+                            f"{percentage:.1f}%\nTarget {target:.1f}%\n"
+                            f"{difference:+.1f} pp"
+                        )
                 plt.text(
                     float(position),
-                    blocked / 2,
+                    bar_value / 2,
                     label,
                     ha="center",
                     va="center",
                     fontsize=6 if pool_size == 5 else 7,
                 )
-        plt.hlines(
-            total_averages[visible_reference_lines],
-            positions[visible_reference_lines] - bar_width / 2,
-            positions[visible_reference_lines] + bar_width / 2,
-            color="black",
-            linewidth=1.0,
-        )
-
-        if TRUE_DMG > 0:
+        if not show_survived_rounds:
             plt.hlines(
-                base_averages[visible_reference_lines],
+                total_averages[visible_reference_lines],
                 positions[visible_reference_lines] - bar_width / 2,
                 positions[visible_reference_lines] + bar_width / 2,
                 color="black",
-                linestyle=":",
                 linewidth=1.0,
             )
+            if TRUE_DMG > 0:
+                plt.hlines(
+                    base_averages[visible_reference_lines],
+                    positions[visible_reference_lines] - bar_width / 2,
+                    positions[visible_reference_lines] + bar_width / 2,
+                    color="black",
+                    linestyle=":",
+                    linewidth=1.0,
+                )
+
+    if show_survived_rounds:
+        base_survived_rounds = np.array([
+            records_by_key[(0, pool_size)]["base_survived_rounds"]
+            for pool_size in pool_sizes
+        ])
+        base_positions = group_positions + first_position
+        plt.bar(
+            base_positions,
+            base_survived_rounds,
+            width=bar_width,
+            color="#555555",
+            label="No Armor",
+        )
+        for position, rounds in zip(base_positions, base_survived_rounds):
+            if rounds > 0:
+                plt.text(
+                    float(position),
+                    rounds / 2,
+                    f"{rounds:.1f}",
+                    ha="center",
+                    va="center",
+                    fontsize=7,
+                    color="white",
+                )
 
     tier_line_colors = {
         "Normal": "grey",
@@ -605,52 +825,57 @@ def visualize_blocked_damage_grouped_bar_chart(
                 label="_nolegend_",
             )
 
-    for group_position, base_average, total_average in zip(
-        group_positions, base_averages, total_averages
-    ):
-        if total_average + 0.15 >= y_max:
-            continue
-        plt.text(
-            float(group_position),
-            total_average + 0.15,
-            "total avg. dmg" if TRUE_DMG > 0 else base_average_label,
-            ha="center",
-            va="bottom",
-            fontsize=7,
-            color="black",
-            rotation=0,
-        )
-        if TRUE_DMG > 0:
+    if not show_survived_rounds:
+        for group_position, base_average, total_average in zip(
+            group_positions, base_averages, total_averages
+        ):
+            if total_average + 0.15 >= y_max:
+                continue
             plt.text(
                 float(group_position),
-                total_average - 0.15,
-                f"+{TRUE_DMG:g} dmg",
-                ha="center",
-                va="top",
-                fontsize=7,
-                color="black",
-                rotation=0,
-            )
-            plt.text(
-                float(group_position),
-                base_average + 0.15,
-                base_average_label,
+                total_average + 0.15,
+                "total avg. dmg" if TRUE_DMG > 0 else base_average_label,
                 ha="center",
                 va="bottom",
                 fontsize=7,
                 color="black",
                 rotation=0,
             )
+            if TRUE_DMG > 0:
+                plt.text(
+                    float(group_position),
+                    total_average - 0.15,
+                    f"+{TRUE_DMG:g} dmg",
+                    ha="center",
+                    va="top",
+                    fontsize=7,
+                    color="black",
+                    rotation=0,
+                )
+                plt.text(
+                    float(group_position),
+                    base_average + 0.15,
+                    base_average_label,
+                    ha="center",
+                    va="bottom",
+                    fontsize=7,
+                    color="black",
+                    rotation=0,
+                )
 
     plt.xticks(
         group_positions,
         [f"{pool_size}d10" for pool_size in pool_sizes],
     )
     plt.xlabel("Attack d10 pool sizes")
-    plt.ylabel("Damage blocked")
-    plt.title("Damage Blocked by Armor Group and Upgrade Tier")
+    plt.ylabel("Average rounds survived" if show_survived_rounds else "Damage blocked")
+    plt.title(
+        "Average Rounds Survived by Armor Group and Upgrade Tier"
+        if show_survived_rounds
+        else "Damage Blocked by Armor Group and Upgrade Tier"
+    )
     plt.grid(axis="y", alpha=0.3)
-    plt.ylim(0, y_max)
+    plt.ylim(0, chart_y_max)
     base_params = f"Simulation Parameters:\n  Number of sims: {sims}\n  L reduction count: {l_reduction_count}\n  L ignore count: {L_IGNORE_DIE_COUNT}\n  M reduction count: {m_reduction_count}\n  M ignore count: {M_IGNORE_DIE_COUNT}\n  M ignore once: {M_TOTAL_IGNORE_ONCE}\n  M halve once: {M_UNREST_HALVING_ONCE}\n  H ignore count: {H_IGNORE_DIE_COUNT}\n  H ignore once: {H_TOTAL_IGNORE_ONCE}\n  H halving count: {H_HALVING_DIE_COUNT}\n\n  L threshold: {L_HARDNESS}\n  L lowest die max: {L_LOWEST_DIE_MAX}\n  M threshold: {M_HARDNESS}\n  M lowest die max: {M_LOWEST_DIE_MAX}\n  H threshold: {H_HARDNESS}\n  H lowest die max: {H_LOWEST_DIE_MAX}\n  Use lowest max: {USE_LOWEST_DIE_MAX}\n  True-dmg: {TRUE_DMG}\n\n  Rounddown: {rounddown}"
     plt.text(
         0.02,
@@ -663,7 +888,7 @@ def visualize_blocked_damage_grouped_bar_chart(
     )
     if group_legend_by_armor_type:
         plt.legend(
-            ncol=3,
+            ncol=4 if show_survived_rounds else 3,
             loc="upper center",
             bbox_to_anchor=(0.5, 0.99),
         )
@@ -671,7 +896,8 @@ def visualize_blocked_damage_grouped_bar_chart(
         plt.legend()
     plt.tight_layout()
 
-    output_file = LOG_DIR / f"d10battlesim_{tier_name.lower()}_9bar.svg"
+    output_suffix = "9bar_survived_rounds" if show_survived_rounds else "9bar"
+    output_file = LOG_DIR / f"d10battlesim_{tier_name.lower()}_{output_suffix}.svg"
     plt.savefig(output_file, format="svg", bbox_inches="tight")
     plt.close() 
 
@@ -680,7 +906,12 @@ def visualize_blocked_damage_grouped_bar_chart(
 
 
 dice_amounts = [2, 3, 4, 5, 6, 7, 8, 9, 10]
-simdata = run_d10_defense_simulation(dice_amounts, rounddownYN=rounddown)
+simdata = run_d10_defense_simulation(
+    dice_amounts,
+    rounddownYN=rounddown,
+    simulate_playerHP=simulate_playerHP,
+    run_simple_sim=False
+)
 
 # write_simdata_to_txt_file(simdata)
 # write_simdata_to_CSV_googleSheet(simdata)
@@ -694,4 +925,14 @@ visualize_blocked_damage_grouped_bar_chart(
     show_percentage_offset=False,
     group_legend_by_armor_type=True,
 )
+if simulate_playerHP:
+    visualize_blocked_damage_grouped_bar_chart(
+        simdata,
+        y_max=25,
+        show_percentage_offset=False,
+        group_legend_by_armor_type=True,
+        show_survived_rounds=True,
+        fix_survived_rounds_y_max=True,
+        survived_rounds_y_max=25
+    )
 # visualize_blocked_damage_grouped_bar_chart(simdata,armor_types=["L","M","H"],selected_tiers={"L":1,"M":1,"H":1})

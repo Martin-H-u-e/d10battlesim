@@ -14,7 +14,7 @@ rounddown = True
 upgrade_tier_amounts = 3
 armor_tier_names = ["Normal","Special","Uniques"]
 
-TRUE_DMG = 5 # can never be reduced, so it is added to the final damage after all reductions
+TRUE_DMG = 0 # can never be reduced, so it is added to the final damage after all reductions
 USE_LOWEST_DIE_MAX = True
 
 # light armor parameters per upgrade tier
